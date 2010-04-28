@@ -30,14 +30,19 @@ set_melody(melody);
 
 
 
+class MutantEvent extends Event {
+	int interval;
+}
+
 //Helper variables for play loop
-0 => int melodic_index;
-0 => int cur_note;
-[2] @=> int mut_interval[];
-Event mutation;
+MutantEvent mutation;
 Event main;
 
-spork ~ mutation_shred( mutation, mut_interval );
+0 => int melodic_index;
+0 => int cur_note;
+2 => mutation.interval;
+
+spork ~ mutation_shred( mutation );
 
 // Main time-loop
 while( true )
@@ -56,7 +61,7 @@ while( true )
 	mutation.broadcast();
 	main => now;
 	melodic_index++;
-	if(melodic_index > 100 && mut_interval[0] == 2) { 1 => mut_interval[0]; }
+	if(melodic_index > 100 && mutation.interval == 2) { 1 => mutation.interval; }
 }
 
 // basic play function (add more arguments as needed)
@@ -88,19 +93,22 @@ fun void mutate(int bar[], int interval) {
 	
 	if(interval == 2) {
 		Std.rand2(-1,bar.cap()-3) => int temp_index;
+		chout <= temp_index <= IO.newline();
 		for(2 => int i;  i>0; i--) {
 			temp_note => bar[temp_index+i];
 		}
 	} else {
 		Std.rand2(0,bar.cap()-1) => int temp_index;
+		chout <= temp_index <= IO.newline();
 		temp_note => bar[temp_index];
 	}
 }
 
-fun void mutation_shred(Event event, int interval[]) {
+fun void mutation_shred( MutantEvent event ) {
 	while (true) {
+		<<< event.interval, "" >>>;
 		event => now;
-		mutate(melody[melodic_index % melody.cap()], interval[0]);
+		mutate(melody[melodic_index % melody.cap()], event.interval);
 		main.signal();
 	}
 }
