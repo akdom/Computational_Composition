@@ -1,20 +1,3 @@
-//Define primary flute
-Flute flute=> PoleZero f => JCRev r => dac;
-.75 => r.gain;
-.15 => r.mix;
-.99 => f.blockZero;
-
-flute.clear( 1.0 );
-0.000005 => flute.jetDelay;
-0.510000 => flute.jetReflection;
-0.000000 => flute.endReflection;
-0.000000 => flute.noiseGain;
-0.400000 => flute.vibratoFreq;
-0.100000 => flute.vibratoGain;
-0.700000 => flute.pressure;
-
-
-
 //Build base melodic info
 
 int melody[10][4];
@@ -28,50 +11,78 @@ a_minor_dia @=> int basic_scale[];
 set_melody(melody);
 
 
+// Main gain control.
+Gain main_gain;
+1 => main_gain.gain;
 
 
+//Intro
+spork ~ intro_gain(main_gain, 70);
+intro(main_gain, 75);
+
+
+//First movement
+1 => main_gain.gain;
+//Machine.add("intro.ck");
+
+
+/*
 class MutantEvent extends Event {
 	int type;
 }
+*/
 
-//Helper variables for play loop
-MutantEvent mutation;
-Event main;
-
-0 => int melodic_index;
-0 => int cur_note;
-2 => mutation.type;
-
-spork ~ mutation_shred( mutation );
-
-// Main time-loop
-while( true )
-{
-    // print
-    <<< "---", "" >>>;
-	
-	for(0 => int i; i < melody[melodic_index%melody.cap()].cap(); i++) {
-		<<< melody[melodic_index%melody.cap()][i], melodic_index, i%melody.cap(), "" >>>;
-		if(melody[melodic_index%melody.cap()][i] != cur_note) {
-			melody[melodic_index%melody.cap()][i] => cur_note;
-			play( 12 + cur_note, 0.75);
-		}
-		200::ms => now;
+fun void intro_gain(Gain gain_control, int duration) {
+	for(0 => int i; i < duration; i++) {
+		((duration - i $ float) + (duration / 2)) / duration => gain_control.gain;
+		800::ms => now;
+		<<< "note ", i >>>;
 	}
-	mutation.broadcast();
-	main => now;
-	melodic_index++;
-	if(melodic_index > 25 && mutation.type == 2) { 1 => mutation.type; }
-	if(melodic_index > 50 && mutation.type == 1) { 3 => mutation.type; }
 }
 
-// basic play function (add more arguments as needed)
-fun void play( float note, float velocity)
+fun void intro(Gain gain_control, int duration)
 {
-    // start the note
-	
-	Std.mtof( note ) => flute.freq; 
-    velocity => flute.noteOn;
+	//Define primary flute
+	Flute flute => PoleZero f => JCRev r => gain_control => dac;
+	.75 => r.gain;
+	.15 => r.mix;
+	.99 => f.blockZero;
+
+	flute.clear( 1.0 );
+	0.000005 => flute.jetDelay;
+	0.510000 => flute.jetReflection;
+	0.000000 => flute.endReflection;
+	0.000000 => flute.noiseGain;
+	0.400000 => flute.vibratoFreq;
+	0.100000 => flute.vibratoGain;
+	0.700000 => flute.pressure;
+
+	//Helper variables for play loop
+	Event main;
+
+	0 => int cur_note;
+	2 => int mutation_type;
+
+	// Main time-loop
+	for(0 => int melodic_index; melodic_index < duration; melodic_index++) 
+	{
+		// print
+		<<< "---", "" >>>;
+		
+		for(0 => int i; i < melody[melodic_index%melody.cap()].cap(); i++) {
+			<<< melody[melodic_index%melody.cap()][i], melodic_index, i%melody.cap(), "" >>>;
+			if(melody[melodic_index%melody.cap()][i] != cur_note) {
+				melody[melodic_index%melody.cap()][i] => cur_note;
+				 
+				Std.mtof( 12 + cur_note ) => flute.freq; 
+				0.75 => flute.noteOn;
+			}
+			200::ms => now;
+		}
+		intro_mutate(melody[melodic_index % melody.cap()], mutation_type);
+		if(melodic_index > 25 && mutation_type == 2) { 1 => mutation_type; }
+		if(melodic_index > 50 && mutation_type == 1) { 3 => mutation_type; }
+	}
 }
 
 fun void set_melody(int melody[][]) {
@@ -89,7 +100,7 @@ fun void array_copy(int from[], int to[]) {
 	}
 }
 
-fun void mutate(int bar[], int type) {
+fun void intro_mutate(int bar[], int type) {
 	
 	if(type == 2) {
 		basic_scale[Std.rand2(1,basic_scale.cap()-1)] =>  int temp_note;
@@ -116,14 +127,5 @@ fun void mutate(int bar[], int type) {
 		Std.rand2(0,bar.cap()-1) => temp_index;
 		chout <= temp_index <= IO.newline();
 		temp_note => bar[temp_index];
-	}
-}
-
-fun void mutation_shred( MutantEvent event ) {
-	while (true) {
-		<<< event.type, "" >>>;
-		event => now;
-		mutate(melody[melodic_index % melody.cap()], event.type);
-		main.signal();
 	}
 }
