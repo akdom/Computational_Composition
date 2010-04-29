@@ -6,7 +6,7 @@ Flute flute=> PoleZero f => JCRev r => dac;
 
 flute.clear( 1.0 );
 0.000005 => flute.jetDelay;
-0.500000 => flute.jetReflection;
+0.510000 => flute.jetReflection;
 0.000000 => flute.endReflection;
 0.000000 => flute.noiseGain;
 0.400000 => flute.vibratoFreq;
@@ -31,7 +31,7 @@ set_melody(melody);
 
 
 class MutantEvent extends Event {
-	int interval;
+	int type;
 }
 
 //Helper variables for play loop
@@ -40,7 +40,7 @@ Event main;
 
 0 => int melodic_index;
 0 => int cur_note;
-2 => mutation.interval;
+2 => mutation.type;
 
 spork ~ mutation_shred( mutation );
 
@@ -61,7 +61,8 @@ while( true )
 	mutation.broadcast();
 	main => now;
 	melodic_index++;
-	if(melodic_index > 100 && mutation.interval == 2) { 1 => mutation.interval; }
+	if(melodic_index > 25 && mutation.type == 2) { 1 => mutation.type; }
+	if(melodic_index > 50 && mutation.type == 1) { 3 => mutation.type; }
 }
 
 // basic play function (add more arguments as needed)
@@ -88,17 +89,31 @@ fun void array_copy(int from[], int to[]) {
 	}
 }
 
-fun void mutate(int bar[], int interval) {
-	basic_scale[Std.rand2(1,basic_scale.cap()-1)] =>  int temp_note;
+fun void mutate(int bar[], int type) {
 	
-	if(interval == 2) {
+	if(type == 2) {
+		basic_scale[Std.rand2(1,basic_scale.cap()-1)] =>  int temp_note;
+		
 		Std.rand2(-1,bar.cap()-3) => int temp_index;
 		chout <= temp_index <= IO.newline();
 		for(2 => int i;  i>0; i--) {
 			temp_note => bar[temp_index+i];
 		}
-	} else {
+	} else if(type == 1) {
+		basic_scale[Std.rand2(1,basic_scale.cap()-1)] =>  int temp_note;
+		
 		Std.rand2(0,bar.cap()-1) => int temp_index;
+		chout <= temp_index <= IO.newline();
+		temp_note => bar[temp_index];
+	} else if(type == 3){
+		basic_scale[Std.rand2(1,basic_scale.cap()-1)] =>  int temp_note;
+		
+		Std.rand2(0,bar.cap()-1) => int temp_index;
+		chout <= temp_index <= IO.newline();
+		temp_note => bar[temp_index];
+		
+		basic_scale[Std.rand2(1,basic_scale.cap()-1)] => temp_note;
+		Std.rand2(0,bar.cap()-1) => temp_index;
 		chout <= temp_index <= IO.newline();
 		temp_note => bar[temp_index];
 	}
@@ -106,9 +121,9 @@ fun void mutate(int bar[], int interval) {
 
 fun void mutation_shred( MutantEvent event ) {
 	while (true) {
-		<<< event.interval, "" >>>;
+		<<< event.type, "" >>>;
 		event => now;
-		mutate(melody[melodic_index % melody.cap()], event.interval);
+		mutate(melody[melodic_index % melody.cap()], event.type);
 		main.signal();
 	}
 }
